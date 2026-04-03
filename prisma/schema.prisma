@@ -1,0 +1,263 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Пользователи ──────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  username      String?   @unique
+  passwordHash  String?
+  image         String?
+  phone         String?
+  bio           String?
+  location      String?   // регион Польши
+  city          String?
+
+  role          Role      @default(USER)
+  isBanned      Boolean   @default(false)
+  bannedReason  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  ads           Ad[]
+  favorites     Favorite[]
+  sentMessages     Message[]  @relation("SentMessages")
+  conversations    ConversationParticipant[]
+  reports       Report[]      @relation("Reporter")
+  receivedReports Report[]    @relation("Reported")
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ─── Объявления ────────────────────────────────────────────────────────────
+
+model Ad {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  title       String
+  description String      @db.Text
+  price       Decimal     @db.Decimal(10, 2)
+  priceType   PriceType   @default(FIXED)
+
+  category    Category
+  condition   Condition
+  status      AdStatus    @default(ACTIVE)
+
+  // Локация
+  region      String?
+  city        String?
+
+  // Изображения — массив Cloudinary URLs
+  images      AdImage[]
+
+  views       Int         @default(0)
+  isFeatured  Boolean     @default(false)  // платное продвижение (на будущее)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  expiresAt   DateTime?   // объявление автоматически деактивируется
+
+  // Relations
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favorites   Favorite[]
+  conversations Conversation[]
+  reports     Report[]
+
+  @@index([category, status])
+  @@index([userId])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([slug])
+  @@map("ads")
+}
+
+model AdImage {
+  id         String  @id @default(cuid())
+  url        String  // Cloudinary URL
+  publicId   String  // Cloudinary public_id (для удаления)
+  order      Int     @default(0)
+  adId       String
+  ad         Ad      @relation(fields: [adId], references: [id], onDelete: Cascade)
+
+  @@map("ad_images")
+}
+
+// ─── Избранное ─────────────────────────────────────────────────────────────
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  adId      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ad   Ad   @relation(fields: [adId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, adId])
+  @@map("favorites")
+}
+
+// ─── Чат ───────────────────────────────────────────────────────────────────
+
+model Conversation {
+  id        String   @id @default(cuid())
+  adId      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ad           Ad?                      @relation(fields: [adId], references: [id], onDelete: SetNull)
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  unreadCount    Int      @default(0)
+  lastReadAt     DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  content        String   @db.Text
+  conversationId String
+  senderId       String
+  createdAt      DateTime @default(now())
+  isRead         Boolean  @default(false)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+// ─── Жалобы (модерация) ────────────────────────────────────────────────────
+
+model Report {
+  id         String       @id @default(cuid())
+  reason     ReportReason
+  details    String?
+  status     ReportStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+  resolvedAt DateTime?
+
+  reporterId String
+  reporter   User   @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  reportedUserId String?
+  reportedUser   User?   @relation("Reported", fields: [reportedUserId], references: [id], onDelete: SetNull)
+
+  adId String?
+  ad   Ad?    @relation(fields: [adId], references: [id], onDelete: SetNull)
+
+  @@map("reports")
+}
+
+// ─── Enums ─────────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Category {
+  ZESTAWY       // Наборы
+  ATOMIZERY     // Атомайзеры
+  ZASILANIA     // Моды/Батарейные блоки
+  PODY          // Поды
+  GRZALKI       // Испарители/Катушки
+  AKCESORIA     // Аксессуары
+  POZOSTALE     // Прочее
+}
+
+enum Condition {
+  NOWY          // Новый
+  JAK_NOWY      // Как новый
+  DOBRY         // Хорошее состояние
+  UZYWANY       // Б/у
+  DO_NAPRAWY    // Требует ремонта
+}
+
+enum AdStatus {
+  ACTIVE
+  INACTIVE
+  SOLD
+  EXPIRED
+  REMOVED     // удалено администратором
+}
+
+enum PriceType {
+  FIXED         // Фиксированная цена
+  NEGOTIABLE    // До переговоров
+  FREE          // Бесплатно
+}
+
+enum ReportReason {
+  SPAM
+  FAKE
+  PROHIBITED    // запрещённый товар
+  WRONG_CATEGORY
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
