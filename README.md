@@ -1,3 +1,34 @@
+<div align="center">
+
+~~~text
+██████╗ ██████╗  ██████╗      ██╗███████╗ ██████╗████████╗
+██╔══██╗██╔══██╗██╔═══██╗     ██║██╔════╝██╔════╝╚══██╔══╝
+██████╔╝██████╔╝██║   ██║     ██║█████╗  ██║        ██║
+██╔══██╗██╔══██╗██║   ██║██   ██║██╔══╝  ██║        ██║
+██████╔╝██║  ██║╚██████╔╝╚█████╔╝███████╗╚██████╗   ██║
+╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚════╝ ╚══════╝ ╚═════╝   ╚═╝
+~~~
+
+**// VAPETRADE · PROJECT README**
+
+*source · setup · architecture · security*
+
+[![README style](https://img.shields.io/badge/README-Codex%20Style-00D9FF?style=for-the-badge)](https://github.com/Bifyp/codex-agent-workbench)
+
+</div>
+
+---
+
+## > PROJECT.STATUS
+
+| FIELD | VALUE |
+|:--|:--|
+| Repository | Bifyp/vapetrade |
+| Documentation | Russian README + English README.en.md |
+| Secrets | Never commit tokens, keys, sessions, or .env files |
+
+## > PROJECT.DOCUMENTATION
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
